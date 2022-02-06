@@ -1,8 +1,5 @@
 import pygatt
-import websockets
-import asyncio
 import time
-import json
 from flask import Flask
 app = Flask(__name__)
 
