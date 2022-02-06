@@ -8,13 +8,27 @@ if len(sys.argv) > 1:
     mac = sys.argv[1]
 else:
     mac = input("MAC (00:00:00:00:00:00) >")
+
 if len(sys.argv) > 2:
     key = sys.argv[2]
 else:
-    key = input("HEX UUID (ffffffffffffffff)>")
+    key = input("HEX KEY (ffffffffffffffff)>")
 
-handle_rx = 11 # read
-handle_tx = 14 # write
+if len(sys.argv) > 3:
+    rx = sys.argv[3]
+else:
+    rx = input("UUID RX (00000000-0000-0000-0000-000000000000)>")
+
+if len(sys.argv) > 4:
+    tx = sys.argv[4]
+else:
+    tx = input("UUID TX (00000000-0000-0000-0000-000000000000)>")
+
+
+notify = 0x000c # subscribe notify handle <=> 0x01 0x00
+
+print("CONNECT TO "+mac+" WITH KEY "+key)
+print("RX: "+ rx + " | TX: "+ tx +" | Notify: "+str(notify))
 
 
 ite = 0
@@ -66,7 +80,7 @@ try:
     def auth():
         try:
             print("Отправляем авторизацию")
-            device.char_write_handle(12, toBytes("0100"))
+            device.char_write_handle(notify, toBytes("0100"))
             print("Авторизуемся")
             au = call(bytearray([0x55, getIter(), 0xff] + toBytes(key) + [ 0xaa ]))
             if au != "ERR" and len(au) == 5 and au[3]=="01":
@@ -123,18 +137,18 @@ try:
                 return tryReconnect(trys-1)
 
     def tryCall(cmd):
-        print("TRYCALL", cmd)
+        print("TRYCALL", toHex(cmd))
         try: # 1
-            device.char_write_handle(14, cmd)
-            out = twoSplitter(toHex(device.char_read_handle(11)))
-            print("TRYCALL", cmd, "RETURN 1", out)
+            device.char_write(tx, cmd)
+            out = twoSplitter(toHex(device.char_read(rx)))
+            print("TRYCALL", toHex(cmd), "RETURN 1", out)
             return out
         except: # 2
             if tryReconnect():
                 try:
-                    device.char_write_handle(14, cmd)
-                    out = twoSplitter(toHex(device.char_read_handle(11)))
-                    print("TRYCALL", cmd, "RETURN 2", out)
+                    device.char_write(tx, cmd)
+                    out = twoSplitter(toHex(device.char_read(rx)))
+                    print("TRYCALL", toHex(cmd), "RETURN 2", out)
                     return out
                 except:
                     return "ERR"
@@ -143,14 +157,14 @@ try:
                 return "ERR"
 
     def call(cmd):
-        print("CALL", cmd)
+        print("CALL", toHex(cmd))
         try:
-            device.char_write_handle(14, cmd)
-            out = twoSplitter(toHex(device.char_read_handle(11)))
-            print("CALL", cmd, "RETURN", out)
+            device.char_write(tx, cmd)
+            out = twoSplitter(toHex(device.char_read(rx)))
+            print("CALL", toHex(cmd), "RETURN", out)
             return out
         except:
-            print("CALL EXCEPT", cmd, "RETURN ERR")
+            print("CALL EXCEPT", toHex(cmd), "RETURN ERR")
             return "ERR"
 
 
@@ -205,7 +219,6 @@ try:
             return "ERR"
 
     # Init
-    #tryAuth() пре-авторизация
 
     @app.route('/<passwd>/status')
     def status(passwd):
@@ -242,7 +255,8 @@ try:
     
 
     if __name__ == '__main__':
-        app.run(host = "10.0.0.6", port = 5000, debug=False)
+        tryAuth() # пре-авторизация
+        app.run(host = "10.0.0.6", port = 5000, debug=True)
     
     
 finally:
